@@ -60,9 +60,9 @@ def ScanerFile(url, InitPreDf, InitPreLabelLoc, InitPreLabelDam, total, slide, l
 InitPreDf = pd.DataFrame()
 InitPreLabelLoc = []
 InitPreLabelDam = []
-a = list(range(1, 201))
-b = list(range(406, 606))
-c = a + b
-t = 8
+soot_sensors = list(range(1, 201))
+temp_sensors = list(range(406, 606))
+sensor = soot_sensors + temp_sensors
+sample_time = 8
 
-ScanerFile(DataPath, InitPreDf, InitPreLabelLoc, InitPreLabelDam, int(2 * t), 4, c, str(t))
+ScanerFile(DataPath, InitPreDf, InitPreLabelLoc, InitPreLabelDam, int(2 * sample_time), sample_time/2, sensor, str(sensor))
