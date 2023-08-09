@@ -6,4 +6,8 @@ This is a project that encompasses 6 ignition source locations and 32 different 
 This is a program that reads CFD-Data and automatically generates a fire source recognition task dataset.
 # FireLocartionDetection.py:
 This is a program designed to identify the location of fire sources and smoke exhaust configurations. It incorporates self-built structures and hyperparameters for BPNN, CNN, LSTM, BiLSTM, CNN-LSTM, and CNN-BiLSTM models, which were determined through grid search to achieve optimal performance. The evaluation metrics include accuracy, precision, recall, and F1 score.
-
+# requirements:
+numpy==1.19.5
+pandas==1.2.4
+scikit_learn==0.24.2
+tensorflow-gpu==2.5.0
