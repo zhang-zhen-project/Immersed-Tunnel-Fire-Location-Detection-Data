@@ -4,11 +4,12 @@ import numpy as np
 import pandas as pd
 from sklearn.preprocessing import MinMaxScaler, OneHotEncoder
 from tensorflow.python.keras.api._v1.keras.models import Sequential
-from tensorflow.python.keras.api._v1.keras.layers import Dense, Dropout, LSTM, Flatten
+from tensorflow.python.keras.api._v1.keras.layers import Dense, Dropout, LSTM, Flatten, Bidirectional
 from tensorflow.python.keras.api._v1.keras.layers import Convolution1D, MaxPooling1D
 from tensorflow.python.keras.api._v1.keras import backend as K
 from tensorflow.python.keras.api._v1.keras.wrappers.scikit_learn import KerasClassifier
 import warnings
+from contextlib import redirect_stdout
 
 warnings.filterwarnings("ignore")
 os.environ["TF_CPP_MIN_LOG_LEVEL"] = '2'
@@ -65,7 +66,7 @@ def MapLoc(key):
     return ValueKey.get(key)
 
 
-# 6 Define normalization coder
+# LOC Define normalization coder
 def MinMaxSC(data):
     scaler = MinMaxScaler()
     scaler = scaler.fit(data)
@@ -93,6 +94,7 @@ def BPNN_model():
     model.add(Flatten())
     model.add(Dense(y.shape[1], activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
+
     return model
 
 
@@ -111,6 +113,7 @@ def CNN_model():
     model.add(Dense(50, activation='relu'))
     model.add(Dense(y.shape[1], activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
+
     return model
 
 
@@ -130,6 +133,7 @@ def CNN_LSTM_model():
     model.add(Dropout(0.1))
     model.add(Dense(y.shape[1], activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
+
     return model
 
 
@@ -147,6 +151,48 @@ def LSTM_model():
     model.add(Dropout(0.1))
     model.add(Dense(y.shape[1], activation='softmax'))
     model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
+
+    return model
+
+
+def BILSTM_model():
+    model = Sequential()
+    model.add(Bidirectional(LSTM(
+        units=100,
+        return_sequences=True),
+        input_shape=(X.shape[1], X.shape[2]), ))
+
+    model.add(Dropout(0.1))
+    model.add(Bidirectional(LSTM(
+        units=20,
+        return_sequences=False)))
+    model.add(Dropout(0.1))
+    model.add(Dense(y.shape[1], activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
+    return model
+
+
+def CNN_BILSTM_model():
+    model = Sequential()
+    model.add(Convolution1D(filters=200, kernel_size=3, strides=1, padding='same',
+                            activation='relu', input_shape=(X.shape[1], X.shape[2])))
+    model.add(MaxPooling1D(pool_size=2, padding='same'))
+    model.add(Convolution1D(filters=100, kernel_size=3, strides=1, padding='same',
+                            activation='relu'))
+    model.add(MaxPooling1D(pool_size=2, padding='same'))
+    model.add(Dropout(0.2))
+    model.add(Bidirectional(LSTM(
+        units=100,
+        return_sequences=True),
+        input_shape=(X.shape[1], X.shape[2]), ))
+
+    model.add(Dropout(0.1))
+    model.add(Bidirectional(LSTM(
+        units=20,
+        return_sequences=False)))
+    model.add(Dropout(0.1))
+    model.add(Dense(y.shape[1], activation='softmax'))
+    model.compile(loss='categorical_crossentropy', optimizer='adam', metrics=['accuracy', precision, recall, f1])
     return model
 
 
@@ -155,43 +201,47 @@ InitPreDf = pd.DataFrame()
 InitPreLabelLoc = []
 InitPreLabelDam = []
 
+
 # 13 run models
 def run(model, t, name, cate):
     tic = time.perf_counter()
     model = KerasClassifier(build_fn=model, verbose=0)
     print(model.build_fn().summary())
+    with open('D:\code\Fire\PLOT\SUMMARY\summary' + name + '_' + cate + '_' + t + '-' + str(slide) + '.txt', 'w') as f:
+        with redirect_stdout(f):
+            model.build_fn().summary()
     print(X.shape, y.shape)
     history = model.fit(X, y, epochs=500, batch_size=128, validation_split=0.25, verbose=1)
     toc = time.perf_counter()
     y_hat = model.predict(X_test)
-    to_excel(history, 'D:\Code\FIRE\FIRE\RESULTS\\' + name + '_' + cate + '_' + t + '.xlsx')
-    to_excel_yhat(y_test, y_hat, 'D:\Code\FIRE\FIRE\RESULTS\\' + name + '_' + cate + '_' + t + 'hat.xlsx')
-    return f"{toc - tic:0.4f}"
+    to_excel(history, 'D:\code\FIRE\RESULTS\\' + name + '_' + cate + '_' + t + '-' + str(slide) + '.xlsx')
+    to_excel_yhat(y_test, y_hat, 'D:\code\FIRE\RESULTS\\' + name + '_' + cate + '_' + t + '-' + str(slide) + 'hat.xlsx')
+    time_str = f"{toc - tic:0.4f}"
+    print(time_str)
+    with open('D:\code\Fire\PLOT\RUNTIME\\time' + name + '_' + cate + '_' + t + '-' + str(slide) + '.txt', 'w') as f:
+        with redirect_stdout(f):
+            print(time_str)
 
 
 # 14 Data processing and data set division
 def DataProcess(slide, t):
-    InitArrayDf = np.load('D:\Code\FIRE\FIRE\DATASET\Temperature\InitArrayDf' + t + '.npy', allow_pickle=True)
-    InitArrayLabelLoc = np.load('D:\Code\FIRE\FIRE\DATASET\Temperature\InitArrayLabelLoc' + t + '.npy',
-                                allow_pickle=True)
-    InitArrayLabelDam = np.load('D:\Code\FIRE\FIRE\DATASET\Temperature\InitArrayLabelDam' + t + '.npy',
-                                allow_pickle=True)
-    InitArrayDf_SOOT = InitArrayDf[:, :-200]
-    InitArrayDf_TEMP = InitArrayDf[:, -200:]
+    InitArrayDf = np.load(r'./DATASET/InitArrayDf' + t + '-' + str(slide) + '21' + '.npy',
+                          allow_pickle=True)
 
-    X_pre_soot = MinMaxSC(InitArrayDf_SOOT)
-    X_pre_temp = MinMaxSC(InitArrayDf_TEMP)
+    InitArrayLabelLoc = np.load(
+        r'./DATASET/InitArrayLabelLoc' + t + '-' + str(slide) + '21' + '.npy',
+        allow_pickle=True)
+    InitArrayLabelDam = np.load('./DATASET/InitArrayLabelDam' + t + '-' + str(slide) +
+                                '21' + '.npy',
+                                allow_pickle=True)
+
+
+    X_pre_soot = MinMaxSC(InitArrayDf)
 
     y_pre_loc = OneHotSc(InitArrayLabelLoc.reshape(-1, 1))
     y_pre_dam = OneHotSc(InitArrayLabelDam.reshape(-1, 1))
 
-    cols_soot = [0, 26, 51, 76, 100]
-    cols_temp = [13, 38, 63, 88]
-
-    print(cols_temp, cols_soot)
-    X_pre_data_temp = X_pre_temp.iloc[:, cols_temp]
-    X_pre_data_soot = X_pre_soot.iloc[:, cols_soot]
-    X_pre_data = pd.concat([X_pre_data_temp, X_pre_data_soot], axis=1)
+    X_pre_data = X_pre_soot
 
     X_, y_loc, y_dam = np.array(X_pre_data), np.array(y_pre_loc), np.array(y_pre_dam)
     X = X_.reshape(int(X_.shape[0] / slide), int(slide), int(X_.shape[1]))
@@ -210,9 +260,20 @@ def DataProcess(slide, t):
     X = X[int(test_ratio * X.shape[0]):]
     return X, X_test, y_loc, y_loc_test, y_dam, y_dam_test
 
-t3 = 6
-cate = '6'
-X, X_test, y_loc, y_loc_test, y_dam, y_dam_test = DataProcess(3,  str(t3))
+
+#
+#
+# select duration of fire
+totle_ = 300
+# select time window
+slide = 30
+# select task type :
+# '6' refer to fire location detection task
+# '32' refer to damper combination detection task
+cate = '32'
+#
+#
+X, X_test, y_loc, y_loc_test, y_dam, y_dam_test = DataProcess(slide, str(totle_))
 #
 if cate == '32':
     y = y_dam
@@ -221,4 +282,5 @@ if cate == '6':
     y = y_loc
     y_test = y_loc_test
 # 15 Main process
-bpnn_time = run(BPNN_model, str(t3), 'BPNN', cate)
+# choices the model 'BPNN','CNN','LSTM','BILSTM','CNN-BILSTM','CNN-LSTM'
+run(CNN_BILSTM_model, str(totle_), 'BILSTM', cate)
